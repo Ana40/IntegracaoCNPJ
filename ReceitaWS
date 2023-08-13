@@ -1,0 +1,52 @@
+public class ReceitaWS {
+     //Busca dados de uma lista de contas e o método @Invocable pode ser chamado de outro contexto como um flow.
+     private List<Account> accounts;
+     @InvocableMethod(label='atualizaDados' description='Busca Informacoes por cnpj')
+    //Aqui recebe uma lista de objetos da conta como argumento
+   public static void updateRequest(List<Account> accounts){
+    //Aqui inicia um loop para interar cada objeto conta na lista contas.
+       for(Account acc : accounts){
+     //Verifica se o campo cnpj não é NULO
+            if (acc.CNPJ__c != null) {
+     //Declaramos a variavel
+              string consultCnpj;
+     //Definimos o valor da variavel removendo os caracteres indicados no replace.
+              consultCNPJ = acc.CNPJ__c.replaceAll('[./-]', ''); 
+      //Invocamos o método que passa o valor da string 
+       buscaInformacoesPorCNPJ(consultCnpj);
+       }
+    }
+}
+   //Declamos o método que recebe o argumento string cnpj
+   public static void buscaInformacoesPorCNPJ(string cnpj){
+    //faz a instancia da classe a mesma forma da FilaIntegracao (pegando a informação da integração)          
+            Http http = new Http();
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint('https://receitaws.com.br/v1/cnpj/' + cnpj);
+            req.setMethod('GET');
+            
+            HTTPResponse res = http.send(req);
+    // verifica a resposta  de sucesso 200
+if (res.getStatusCode() == 200) {
+        //Aqui analisa o corpo da resposta HTTp e cria um novo objeto da classe IntegraçãoResponse e atualiza oregistro existente
+        IntegracaoResponse campoReceita = IntegracaoResponse.parse(res.getBody());
+             
+        Account campoConta = [SELECT id, CNPJ__c FROM Account Where CNPJ__c=:cnpj];
+        campoConta.Name = campoReceita.nome;
+        campoConta.Nome_Fantasia__c = campoReceita.fantasia; 
+        campoConta.Data_de_abertura_da_empresa__c= Date.parse(campoReceita.abertura);
+        campoConta.Situacao_na_receita_federal__c = campoReceita.situacao;
+        campoConta.Natureza_Juridica__c = campoReceita.natureza_juridica;
+        campoConta.Capital_Social__c = Decimal.valueOf(campoReceita.capital_social);
+        campoConta.Email__c = campoReceita.email;
+        campoConta.Phone = campoReceita.telefone;
+        campoConta.BillingStreet = campoReceita.logradouro +','+ campoReceita.bairro +','+ campoReceita.numero;
+        campoConta.BillingCity = campoReceita.municipio;
+        campoConta.BillingState = campoReceita.uf;
+        campoConta.BillingPostalCode = campoReceita.cep;
+               
+        update campoConta;
+        
+    }
+  }
+}
