@@ -1,0 +1,67 @@
+public class FilaIntegracao implements Queueable, Database.AllowsCallouts {
+   //declara uma variavel "accounts" de classe privada do tipo lista 
+    private List<Account> accounts;
+    //A classe recebe o parametro do tipo lista e atribui a "accounts" variavel de classe usando "this.account".
+    //Definindo o valor passado como parâmetro.
+    public FilaIntegracao(List<Account> accounts ) {
+        this.accounts = accounts;
+    }
+    //Aqui o código é a implementação do 'execute' método que implementa a 'Queueable' interface recenbendo assim o parametro
+    //'QueueableContext' que gerencia a execução de trabalhos em fila.
+    //Intera e verifica os dados do objeto se é nulo e se não ele cria a variavel 'buscarCnpj'.Além de fazer a remoção dos caracteres do campo cnpj.
+    //Assim ele chama outro método(acharnaReceitaWS) e passa a buscar o outro método(buscarCnpj) como argumento.
+     public void execute(QueueableContext context) {
+        for (Account account : accounts) {
+            
+        if (account.CNPJ__c != null) {
+                String buscarCnpj;
+                buscarCnpj = account.CNPJ__c.replaceAll('[./-]', '');                             
+                acharNaReceitaWS(buscarCnpj);                
+            }
+        }
+    }
+    
+    public  void  acharNaReceitaWS(String cnpj) {
+        
+        // Monta a solicitação da chamada externa realizada pela integração
+        HttpRequest req = new HttpRequest();
+        req.setMethod('GET');
+        req.setEndpoint('https://receitaws.com.br/v1/cnpj/' + cnpj);
+        req.setHeader('Accept', 'application/json');
+     
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        //http 200 = sucesso na chamada
+        if(res.getStatusCode() == 200) {
+            String result=res.getBody();
+            for (Account account : accounts) {
+                DadosAtualizar(account.Id, result);
+            }
+        }
+        
+    }
+    
+    public static void DadosAtualizar(String idConta, String jsonReceita) {
+        // Código para tratar com a resposta de integração e atualizar os campos no objeto Conta
+        
+        IntegracaoResponse campoReceita = (IntegracaoResponse) JSON.deserialize(jsonReceita, IntegracaoResponse.class);
+             
+        Account campoConta = [SELECT id FROM Account Where id=:idConta];
+        campoConta.Name = campoReceita.nome;
+        campoConta.Nome_Fantasia__c = campoReceita.fantasia; 
+        campoConta.Data_de_abertura_da_empresa__c= Date.parse(campoReceita.abertura);
+        campoConta.Situacao_na_receita_federal__c = campoReceita.situacao;
+        campoConta.Natureza_Juridica__c = campoReceita.natureza_juridica;
+        campoConta.Capital_Social__c = Decimal.valueOf(campoReceita.capital_social);
+        campoConta.Email__c = campoReceita.email;
+        campoConta.Phone = campoReceita.telefone;
+        campoConta.BillingStreet = campoReceita.logradouro +','+ campoReceita.bairro +','+ campoReceita.numero;
+        campoConta.BillingCity = campoReceita.municipio;
+        campoConta.BillingState = campoReceita.uf;
+        campoConta.BillingPostalCode = campoReceita.cep;
+               
+        update campoConta;
+        
+    }
+}
