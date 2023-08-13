@@ -1,0 +1,19 @@
+trigger AccountTrigger on Account (after insert) {
+    //cria uma lista vazia de contas
+    List<Account> accounts = new List<Account>();
+    //cria um loop que roda os registros conta recém inseridos'trigger.new
+    for (Account acc : Trigger.new) {
+    //verifica se a operação foi bem  sucedida e se o campo cnpj não está em branco
+        if (Trigger.IsInsert && String.isNotBlank(acc.CNPJ__c) ){   
+    //Se ambas as condições forem atendidas, o registro da conta é adicionado na lista 'Accounts'                     
+            accounts.add(acc);          
+        } 
+        
+    }
+    // Aqui faz uma instância com a class 'FilaIntegração'
+    // onde passa para lista de contas como argumento 
+    FilaIntegracao classFila = new FilaIntegracao(accounts);
+    //E executa o metodo chamado na instância, que adiciona a instância a uma fila para execução. 
+    System.enqueueJob(classFila);
+    
+}
